@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Burrin Saltador</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      background: #f7f7f7;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: 'Courier New', monospace;
+    }
+    h1 {
+      color: #535353;
+      margin-bottom: 20px;
+      font-size: 24px;
+    }
+    #gameContainer {
+      position: relative;
+      border: 4px solid #535353;
+      background: #fff;
+    }
+    canvas {
+      display: block;
+      image-rendering: pixelated;
+    }
+    #instructions {
+      margin-top: 20px;
+      color: #535353;
+      text-align: center;
+    }
+    #score {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 20px;
+      color: #535353;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>BURRIN SALTADOR</h1>
+  <div id="gameContainer">
+    <canvas id="game" width="800" height="300"></canvas>
+    <div id="score">0</div>
+  </div>
+  <p id="instructions">Presiona ESPACIO o haz clic para saltar</p>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const scoreElement = document.getElementById('score');
+
+    // Pixel art sprites using color codes: 0=empty, 1=body(gray), 2=dark(outline), 3=light(belly/snout), 4=pink(inner ear)
+    const SPRITES = {
+      // Humanoid donkey running RIGHT - side view - frame 1 (16x28)
+      burrito: [
+        [0,0,0,0,0,0,0,0,0,0,2,2,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,2,1,4,2,0,0,0],
+        [0,0,0,0,0,0,0,0,0,2,1,4,2,0,0,0],
+        [0,0,0,0,0,0,0,0,0,2,1,1,2,0,0,0],
+        [0,0,0,0,0,0,0,0,0,2,1,1,2,0,0,0],
+        [0,0,0,0,0,0,0,0,0,2,1,1,2,0,0,0],
+        [0,0,0,0,0,0,0,2,2,1,1,2,0,0,0,0],
+        [0,0,0,0,0,0,2,1,1,1,1,2,0,0,0,0],
+        [0,0,0,0,0,0,2,1,2,2,1,2,0,0,0,0],
+        [0,0,0,0,0,0,2,1,1,1,1,2,0,0,0,0],
+        [0,0,0,0,0,0,2,1,1,3,3,3,2,0,0,0],
+        [0,0,0,0,0,0,0,2,1,3,3,3,2,0,0,0],
+        [0,0,0,0,0,0,0,0,2,2,2,2,0,0,0,0],
+        [0,0,0,0,0,0,0,0,2,1,2,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,2,1,2,0,0,0,0,0],
+        [0,0,0,0,0,2,2,2,2,1,2,0,0,0,0,0],
+        [0,0,0,0,2,1,1,1,1,1,2,0,0,0,0,0],
+        [0,0,0,0,2,1,1,3,3,3,2,0,0,0,0,0],
+        [0,0,0,0,2,1,1,3,3,3,2,0,0,0,0,0],
+        [0,0,0,0,2,1,1,3,3,3,2,0,0,0,0,0],
+        [0,0,0,0,2,1,1,3,3,3,2,0,0,0,0,0],
+        [0,0,0,0,0,2,1,1,1,2,0,0,0,0,0,0],
+        [0,0,0,0,0,2,1,1,1,2,0,0,0,0,0,0],
+        [0,0,0,0,0,2,1,0,1,2,0,0,0,0,0,0],
+        [0,0,0,0,0,2,1,0,1,2,0,0,0,0,0,0],
+        [0,0,0,0,0,2,1,0,1,2,0,0,0,0,0,0],
+        [0,0,0,0,2,1,2,0,2,1,2,0,0,0,0,0],
+        [0,0,0,0,2,2,0,0,0,2,2,0,0,0,0,0],
+      ],
+      // Humanoid donkey running RIGHT - side view - frame 2 (legs spread)
+      burritoRun: [
+        [0,0,0,0,0,0,0,0,0,0,2,2,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,2,1,4,2,0,0,0],
+        [0,0,0,0,0,0,0,0,0,2,1,4,2,0,0,0],
+        [0,0,0,0,0,0,0,0,0,2,1,1,2,0,0,0],
+        [0,0,0,0,0,0,0,0,0,2,1,1,2,0,0,0],
+        [0,0,0,0,0,0,0,0,0,2,1,1,2,0,0,0],
+        [0,0,0,0,0,0,0,2,2,1,1,2,0,0,0,0],
+        [0,0,0,0,0,0,2,1,1,1,1,2,0,0,0,0],
+        [0,0,0,0,0,0,2,1,2,2,1,2,0,0,0,0],
+        [0,0,0,0,0,0,2,1,1,1,1,2,0,0,0,0],
+        [0,0,0,0,0,0,2,1,1,3,3,3,2,0,0,0],
+        [0,0,0,0,0,0,0,2,1,3,3,3,2,0,0,0],
+        [0,0,0,0,0,0,0,0,2,2,2,2,0,0,0,0],
+        [0,0,0,0,0,0,0,0,2,1,2,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,2,1,2,0,0,0,0,0],
+        [0,0,0,0,0,2,2,2,2,1,2,0,0,0,0,0],
+        [0,0,0,0,2,1,1,1,1,1,2,0,0,0,0,0],
+        [0,0,0,0,2,1,1,3,3,3,2,0,0,0,0,0],
+        [0,0,0,0,2,1,1,3,3,3,2,0,0,0,0,0],
+        [0,0,0,0,2,1,1,3,3,3,2,0,0,0,0,0],
+        [0,0,0,0,2,1,1,3,3,3,2,0,0,0,0,0],
+        [0,0,0,0,0,2,1,1,1,2,0,0,0,0,0,0],
+        [0,0,0,0,0,2,1,1,1,2,0,0,0,0,0,0],
+        [0,0,0,2,1,2,0,0,2,1,2,0,0,0,0,0],
+        [0,0,2,1,2,0,0,0,0,2,1,2,0,0,0,0],
+        [0,2,1,2,0,0,0,0,0,0,2,1,2,0,0,0],
+        [0,2,2,0,0,0,0,0,0,0,0,2,2,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+      ],
+      // Cactus 12x24
+      cactus: [
+        [0,0,0,0,0,1,1,0,0,0,0,0],
+        [0,0,0,0,0,1,1,0,0,0,0,0],
+        [0,0,0,0,0,1,1,0,0,0,0,0],
+        [0,0,0,0,0,1,1,0,0,0,0,0],
+        [0,0,0,0,0,1,1,0,0,0,0,0],
+        [0,1,1,0,0,1,1,0,0,1,1,0],
+        [0,1,1,0,0,1,1,0,0,1,1,0],
+        [0,1,1,0,0,1,1,0,0,1,1,0],
+        [0,1,1,0,0,1,1,0,0,1,1,0],
+        [0,1,1,1,1,1,1,1,1,1,1,0],
+        [0,1,1,1,1,1,1,1,1,1,1,0],
+        [0,0,0,0,0,1,1,0,0,0,0,0],
+        [0,0,0,0,0,1,1,0,0,0,0,0],
+        [0,0,0,0,0,1,1,0,0,0,0,0],
+        [0,0,0,0,0,1,1,0,0,0,0,0],
+        [0,0,0,0,0,1,1,0,0,0,0,0],
+        [0,0,0,0,0,1,1,0,0,0,0,0],
+        [0,0,0,0,0,1,1,0,0,0,0,0],
+        [0,0,0,0,0,1,1,0,0,0,0,0],
+        [0,0,0,0,0,1,1,0,0,0,0,0],
+        [0,0,0,0,0,1,1,0,0,0,0,0],
+        [0,0,0,0,0,1,1,0,0,0,0,0],
+        [0,0,0,0,0,1,1,0,0,0,0,0],
+        [0,0,0,0,0,1,1,0,0,0,0,0],
+      ],
+      // Cloud 16x8
+      cloud: [
+        [0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0],
+        [0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0],
+        [0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0],
+        [0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+        [0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0],
+      ],
+      // Bird 16x12
+      bird: [
+        [0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0],
+        [0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+        [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+        [0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0],
+      ],
+    };
+
+    // Game state
+    const game = {
+      running: false,
+      gameOver: false,
+      score: 0,
+      highScore: 0,
+      speed: 6,
+      groundY: 250,
+    };
+
+    // Burrito state
+    const dino = {
+      x: 50,
+      y: 0,
+      width: 32,
+      height: 56,
+      velocityY: 0,
+      jumping: false,
+      gravity: 0.9,
+      jumpForce: -16,
+      frame: 0,
+    };
+
+    // Obstacles
+    let obstacles = [];
+    let clouds = [];
+    let groundOffset = 0;
+
+    // Initialize dino position
+    dino.y = game.groundY - dino.height;
+
+    // Color palette for burrito
+    const COLORS = {
+      0: null,           // transparent
+      1: '#4B4345',      // body (brown/gray)
+      2: '#4A3728',      // outline (dark brown)
+      3: '#C4B39A',      // belly (light beige)
+      4: '#E8A0A0',      // pink (inner ear/nose)
+    };
+
+    function drawSprite(sprite, x, y, scale, color) {
+      ctx.fillStyle = color;
+      for (let row = 0; row < sprite.length; row++) {
+        for (let col = 0; col < sprite[row].length; col++) {
+          if (sprite[row][col] === 1) {
+            ctx.fillRect(x + col * scale, y + row * scale, scale, scale);
+          }
+        }
+      }
+    }
+
+    function drawColoredSprite(sprite, x, y, scale) {
+      for (let row = 0; row < sprite.length; row++) {
+        for (let col = 0; col < sprite[row].length; col++) {
+          const colorCode = sprite[row][col];
+          if (colorCode !== 0 && COLORS[colorCode]) {
+            ctx.fillStyle = COLORS[colorCode];
+            ctx.fillRect(x + col * scale, y + row * scale, scale, scale);
+          }
+        }
+      }
+    }
+
+    function drawDino() {
+      const scale = 2;
+
+      // Choose sprite based on animation frame
+      let sprite;
+      if (dino.jumping) {
+        sprite = SPRITES.burrito;
+      } else {
+        // Alternate between frames for running animation
+        const frame = Math.floor(Date.now() / 150) % 2;
+        sprite = frame === 0 ? SPRITES.burrito : SPRITES.burritoRun;
+      }
+
+      drawColoredSprite(sprite, dino.x, dino.y, scale);
+    }
+
+    function drawGround() {
+      ctx.fillStyle = '#535353';
+      ctx.fillRect(0, game.groundY, canvas.width, 2);
+
+      // Draw ground texture
+      for (let i = 0; i < canvas.width; i += 20) {
+        const offset = (i + groundOffset) % canvas.width;
+        if (Math.random() > 0.7) {
+          ctx.fillRect(offset, game.groundY + 5, 2, 2);
+        }
+      }
+    }
+
+    function drawClouds() {
+      ctx.globalAlpha = 0.5;
+      for (const cloud of clouds) {
+        drawSprite(SPRITES.cloud, cloud.x, cloud.y, 3, '#a0a0a0');
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawObstacles() {
+      for (const obs of obstacles) {
+        if (obs.type === 'cactus') {
+          drawSprite(SPRITES.cactus, obs.x, obs.y, 2, '#535353');
+        } else if (obs.type === 'bird') {
+          const birdY = obs.y + (Math.sin(Date.now() / 100) * 5);
+          drawSprite(SPRITES.bird, obs.x, birdY, 2, '#535353');
+        }
+      }
+    }
+
+    function drawScore() {
+      scoreElement.textContent = Math.floor(game.score);
+    }
+
+    function drawGameOver() {
+      ctx.fillStyle = '#535353';
+      ctx.font = 'bold 24px Courier New';
+      ctx.textAlign = 'center';
+      ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 20);
+      ctx.font = '16px Courier New';
+      ctx.fillText('Presiona ESPACIO para reiniciar', canvas.width / 2, canvas.height / 2 + 20);
+      if (game.highScore > 0) {
+        ctx.fillText(`Record: ${Math.floor(game.highScore)}`, canvas.width / 2, canvas.height / 2 + 50);
+      }
+    }
+
+    function drawStartScreen() {
+      ctx.fillStyle = '#535353';
+      ctx.font = 'bold 20px Courier New';
+      ctx.textAlign = 'center';
+      ctx.fillText('Presiona ESPACIO para comenzar', canvas.width / 2, canvas.height / 2);
+    }
+
+    function update() {
+      if (!game.running || game.gameOver) return;
+
+      // Update dino
+      dino.velocityY += dino.gravity;
+      dino.y += dino.velocityY;
+
+      if (dino.y >= game.groundY - dino.height) {
+        dino.y = game.groundY - dino.height;
+        dino.velocityY = 0;
+        dino.jumping = false;
+      }
+
+      // Update obstacles
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        obstacles[i].x -= game.speed;
+        if (obstacles[i].x < -50) {
+          obstacles.splice(i, 1);
+        }
+      }
+
+      // Update clouds
+      for (let i = clouds.length - 1; i >= 0; i--) {
+        clouds[i].x -= game.speed * 0.3;
+        if (clouds[i].x < -50) {
+          clouds.splice(i, 1);
+        }
+      }
+
+      // Spawn obstacles
+      if (Math.random() < 0.01 && (obstacles.length === 0 || obstacles[obstacles.length - 1].x < canvas.width - 300)) {
+        const type = Math.random() > 0.8 ? 'bird' : 'cactus';
+        obstacles.push({
+          type,
+          x: canvas.width,
+          y: type === 'cactus' ? game.groundY - 48 : game.groundY - 60 - Math.random() * 40,
+          width: type === 'cactus' ? 24 : 32,
+          height: type === 'cactus' ? 48 : 16,
+        });
+      }
+
+      // Spawn clouds
+      if (Math.random() < 0.005 && (clouds.length === 0 || clouds[clouds.length - 1].x < canvas.width - 200)) {
+        clouds.push({
+          x: canvas.width,
+          y: 30 + Math.random() * 60,
+        });
+      }
+
+      // Update ground
+      groundOffset = (groundOffset + game.speed) % canvas.width;
+
+      // Check collisions
+      for (const obs of obstacles) {
+        const dinoBox = {
+          x: dino.x + 6,
+          y: dino.y + 12,
+          width: dino.width - 12,
+          height: dino.height - 16,
+        };
+        const obsBox = {
+          x: obs.x + 4,
+          y: obs.type === 'bird' ? obs.y + Math.sin(Date.now() / 100) * 5 : obs.y,
+          width: obs.width - 8,
+          height: obs.height - 4,
+        };
+
+        if (
+          dinoBox.x < obsBox.x + obsBox.width &&
+          dinoBox.x + dinoBox.width > obsBox.x &&
+          dinoBox.y < obsBox.y + obsBox.height &&
+          dinoBox.y + dinoBox.height > obsBox.y
+        ) {
+          game.gameOver = true;
+          if (game.score > game.highScore) {
+            game.highScore = game.score;
+          }
+        }
+      }
+
+      // Update score and speed
+      game.score += 0.1;
+      game.speed = 6 + Math.floor(game.score / 100) * 0.5;
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      drawClouds();
+      drawGround();
+      drawDino();
+      drawObstacles();
+      drawScore();
+
+      if (game.gameOver) {
+        drawGameOver();
+      } else if (!game.running) {
+        drawStartScreen();
+      }
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function jump() {
+      if (game.gameOver) {
+        resetGame();
+        return;
+      }
+
+      if (!game.running) {
+        game.running = true;
+        return;
+      }
+
+      if (!dino.jumping) {
+        dino.velocityY = dino.jumpForce;
+        dino.jumping = true;
+      }
+    }
+
+    function resetGame() {
+      game.running = true;
+      game.gameOver = false;
+      game.score = 0;
+      game.speed = 6;
+      dino.y = game.groundY - dino.height;
+      dino.velocityY = 0;
+      dino.jumping = false;
+      obstacles = [];
+    }
+
+    // Event listeners
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' || e.code === 'ArrowUp') {
+        e.preventDefault();
+        jump();
+      }
+    });
+
+    canvas.addEventListener('click', jump);
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      jump();
+    });
+
+    // Start game loop
+    gameLoop();
+  </script>
+</body>
+</html>
